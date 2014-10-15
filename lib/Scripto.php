@@ -158,6 +158,26 @@ class Scripto
         $this->setUserInfo();
     }
     
+    
+    /**
+     * Create an account via the MediaWiki service.
+     * 
+     * It is possible to restrict account creation in MediaWiki.
+     * @link http://www.mediawiki.org/wiki/Manual:Preventing_access#Restrict_account_creation
+     * 
+     * @uses Scripto_Service_MediaWiki::createAcct()
+     * @param string $username The MediaWiki user's username.
+     * @param string $password The MediaWiki user's password.
+     * @param string $email The email address for the new MediaWiki account.
+     * @param string $reason The reason why the new MediaWiki account is being created.
+     */
+    public function createacct($username, $password, $email, $reason)
+    {
+        $this->_mediawiki->createAcct($username, $password, $email, $reason);
+        $this->setUserInfo();
+    }
+    
+    
     /**
      * Determine if the current user is logged in.
      * 

@@ -1,4 +1,4 @@
 name = Scripto
-description = Adds the ability to transcribe files using the Scripto library.
+description = Adds the ability to transcribe files using the Scripto library. This is a fork that supports creating accounts for transcribers within Drupal.
 core = 7.x
 configure = admin/config/scripto

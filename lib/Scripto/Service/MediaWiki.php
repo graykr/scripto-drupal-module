@@ -94,6 +94,9 @@ class Scripto_Service_MediaWiki extends Zend_Service_Abstract
         ), 
         'login' => array(
             'lgname', 'lgpassword', 'lgtoken'
+        ),
+        'createaccount' => array(
+        	'name', 'password', 'email', 'reason', 'language', 'token'
         ), 
         'logout' => array()
     );
@@ -582,6 +585,58 @@ class Scripto_Service_MediaWiki extends Zend_Service_Abstract
         }
         throw new Scripto_Service_Exception('Unknown login error: ' . $response['login']['result']);
     }
+    
+	/**
+     * Create new account for MediaWiki.
+     * 
+     * @link http://www.mediawiki.org/wiki/API:API:Account_creation
+     * @param string $acname
+     * @param string $acpassword
+     * @param string $acemail
+     * @param string $acreason
+     */
+    public function createAcct($acname, $acpassword, $acemail, $acreason)
+    {
+        // Get the account creation token.
+        $params = array(
+        	'name' => $acname, 
+        	'password' => $acpassword,
+        	'email' => $acemail,
+        	'reason' => $acreason,
+        	'language' => 'en'
+        	);
+        $response = $this->_request('createaccount', $params);
+        
+        // Confirm the account creation token.
+        if ('NeedToken' == $response['createaccount']['result']) {
+            $params['token'] = $response['createaccount']['token'];
+            $response = $this->_request('createaccount', $params);
+        }
+        
+        // Process a successful account creation and login automatically.
+        if ('Success' == $response['createaccount']['result']) {
+            $this->login($acname, $acpassword);
+            return;
+        }
+        
+        // Process an unsuccessful account creation.
+        $errors = array('noname'          => 'Username is empty.',
+        				'userexists'	  => 'Username already in use.', 
+                        'password-name-match' => 'Your password must be different from your username.', 
+                        'noemailtitle'    => 'No email address.', 
+                        'invalidemailaddress' => 'The e-mail address cannot be accepted as it appears to have an invalid format.', 
+                        'passwordtooshort'=> 'Password is too short.',
+                        'acct_creation_throttle_hit' => 'Account creation limit exceeded for this IP address.', 
+                        'Blocked'         => 'Account creation is blocked.',
+                        'permdenied-createaccount' => 'You do not have the permissions to create a new account.');
+        
+        $error = $response['createaccount']['result'];
+        if (array_key_exists($error, $errors)) {
+            throw new Scripto_Service_Exception($errors[$error]);
+        }
+        throw new Scripto_Service_Exception('Unknown account creation error: ' . $response['createaccount']['result']);
+    }
+    
     
     /**
      * Logout of MediaWiki.

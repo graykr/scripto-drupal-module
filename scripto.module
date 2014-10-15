@@ -45,14 +45,21 @@ function scripto_menu() {
     'type' => MENU_CALLBACK,
   );
   $items['scripto/login'] = array(
-    'title' => 'Scripto Login',
+    'title' => 'Scripto: Login or Create Account',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('scripto_login_form'),
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
   );
+  $items['scripto/createacct'] = array(
+    'title' => 'Scripto: Create Account',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('scripto_createacct_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
   return $items;
-}
+} 
 
 /**
  * Menu callback: displays the scripto module configuration form.
@@ -251,7 +258,17 @@ function scripto_transcribe_form_submit($form, &$form_state) {
   drupal_set_message('The transcription has been saved.');
 }
 
+/**
+ * Menu callback: displays the scripto module login form.
+ * 
+ * @see scripto_menu().
+ */
+
 function scripto_login_form($form, &$form_state, $node_id, $file_id) {
+  $form['create_msg'] = array (
+  		'#markup' => t(' Would you like to create a new account instead? Go to the ') . l('account creation page.', "scripto/createacct/".$node_id."/".$file_id),
+  );
+  
   $form['scripto_username'] = array(
     '#type' => 'textfield',
     '#title' => t('Username'),
@@ -263,8 +280,10 @@ function scripto_login_form($form, &$form_state, $node_id, $file_id) {
     '#size' => 20,
   );
   $form['scripto_submit'] = array('#type' => 'submit', '#value' => t('Login'));
+  
   $form['node_id'] = array('#type' => 'value', '#value' => $node_id);
   $form['file_id'] = array('#type' => 'value', '#value' => $file_id);
+  
   $form['#validate'][] = 'scripto_login_form_validate';
   $form['#submit'][] = 'scripto_login_form_submit';
   
@@ -272,7 +291,7 @@ function scripto_login_form($form, &$form_state, $node_id, $file_id) {
 }
 
 /**
- * Form validation handler for scripto_transcribe_form() login.
+ * Form validation handler for scripto_login_form().
  */
 function scripto_login_form_validate($form, &$form_state) {
   try {
@@ -292,6 +311,81 @@ function scripto_login_form_submit($form, &$form_state) {
   drupal_set_message('You are logged into Scripto.');
   drupal_goto("scripto/transcribe/{$form_state['values']['node_id']}/{$form_state['values']['file_id']}");
 }
+
+/**
+ * Menu callback: displays the scripto module account creation form.
+ * 
+ * @see scripto_menu().
+ */
+function scripto_createacct_form($form, &$form_state, $node_id, $file_id) {
+  $form['scripto_username'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Username'),
+    '#size' => 20,
+    '#required' => TRUE,
+  );
+  $form['scripto_password'] = array(
+    '#type' => 'password_confirm',
+    '#size' => 20,
+    '#required' => TRUE,
+  );
+  $form['scripto_email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Email'),
+    '#size' => 40,
+    '#required' => TRUE,
+  );
+  $form['scripto_about'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Optional: Tell us a bit about why you are interested in transcribing for us.'),
+    '#cols' => 50,
+    '#rows' => 2,
+    '#required' => FALSE,
+  );
+  $form['scripto_submit'] = array('#type' => 'submit', '#value' => t('Create Account'));
+  $form['node_id'] = array('#type' => 'value', '#value' => $node_id);
+  $form['file_id'] = array('#type' => 'value', '#value' => $file_id);
+  $form['#validate'][] = 'scripto_createacct_form_validate';
+  $form['#submit'][] = 'scripto_createacct_form_submit';
+  
+  return $form;
+}
+
+/**
+ * Form validation handler for scripto_createacct_form().
+ */
+function scripto_createacct_form_validate($form, &$form_state) {
+  try {
+    // To create the account.
+    $scripto = _scripto_get_scripto();
+    
+    $acname = $form_state['values']['scripto_username'];
+    $acpassword = $form_state['values']['scripto_password'];
+    $acemail = $form_state['values']['scripto_email'];
+    if(isset($form_state['values']['scripto_reason'])) {
+    	$acreason = $form_state['values']['scripto_reason'];
+    } else {
+    	$acreason = '';
+    }
+    
+    $scripto->createacct($acname, $acpassword, $acemail, $acreason);
+  
+  } catch (Scripto_Service_Exception $e) {
+    $errormsg = $e->getMessage();
+    
+	form_set_error('', $errormsg);
+  }
+}
+
+/**
+ * Form submission handler for scripto_createacct_form().
+ */
+function scripto_createacct_form_submit($form, &$form_state) {
+  // The validation handler took care of everything.
+  drupal_set_message('Your account was created!');
+   drupal_goto("scripto/transcribe/{$form_state['values']['node_id']}/{$form_state['values']['file_id']}");
+}
+
 
 /**
  * Implementation of hook_node_view_alter().
