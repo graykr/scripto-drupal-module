@@ -190,11 +190,22 @@ function scripto_transcribe_form($form, &$form_state, $node_id, $file_id) {
   
   // Build the transcription form.
   if ($doc->canEditTranscriptionPage()) {
-    // Zoom.it image viewer.
-    if (in_array($file->filemime, _scripto_get_filemime_zoomit())) {
-      $url = url('http://api.zoom.it/v1/content/', array('query' => array('url' => file_create_url($file->uri))));
-      $response = drupal_http_request($url);
-      $html = json_decode($response->data)->embedHtml;
+    // DeepZoom module viewer, which uses seadragon (changed from Zoom.it)
+    if (in_array($file->filemime, _scripto_get_filemime_seadragon())) {
+      
+      //Zoom.it no longer supported by Microsoft
+      //$url = url('http://api.zoom.it/v1/content/', array('query' => array('url' => file_create_url($file->uri))));
+      //$response = drupal_http_request($url);
+      //$html = json_decode($response->data)->embedHtml;
+      
+      $images = array(md5_file($file->uri) => $file->uri);
+      $status = deepzoom_generate_deepzoom($images, 'batch');
+      
+      if ($status[$file->uri]) {
+      	$html = '<div id="deepzoom-'.md5_file($file->uri).'" class="deepzoom"></div>';
+      } else {
+      	$html = '<p>Error in generating viewer for ' . $file->filemime . ' files. ' . l('Click here', file_create_url($file->uri), array('attributes' => array('_target' => 'blank'))) . ' to open the file manually.</p>';
+      }
     
     // Google Docs document viewer.
     } else if (in_array($file->filemime, _scripto_get_filemime_googledocs())) {
@@ -214,15 +225,21 @@ function scripto_transcribe_form($form, &$form_state, $node_id, $file_id) {
       '#cols' => 60,
       '#rows' => 16,
     );
+    
     $form['submit'] = array('#type' => 'submit', '#value' => t('Save Transcription'));
+    
+    // Give link to view transcription in MediaWiki for administrative users
     if ($scripto->canExport()) {
         $form['scripto_wiki'] = array('#markup' => l('View wiki page', $doc->getTranscriptionPageMediawikiUrl()) . '. ');
     }
+    
+    // Display login or logout options
     if ($scripto->isLoggedIn()) {
       $form['scripto_logout'] = array('#markup' => l('Log out, ' . $scripto->getUserName(), "scripto/transcribe/$node_id/$file_id", array('query' => array('logout' => null))));
     } else {
       $form['scripto_login'] = array('#markup' => l('Log in to Scripto', "scripto/login/$node_id/$file_id"));
     }
+    
     $form['#submit'][] = 'scripto_transcribe_form_submit';
   
   // Access to MediaWiki is restricted. Show login link or access denied message.
@@ -408,9 +425,10 @@ function _scripto_get_pages($node) {
 }
 
 /**
- * Returns an array of MIME types compatible with the Zoom.it image viewer.
+ * Returns an array of MIME types compatible with the seadragon image viewer.
+ * 2014-10-02 changed from zoom.it to seadragon
  */
-function _scripto_get_filemime_zoomit() {
+function _scripto_get_filemime_seadragon() {
   return array(
     // gif
     'image/gif', 'image/x-xbitmap', 'image/gi_', 
