@@ -304,7 +304,7 @@ function scripto_login_form_validate($form, &$form_state) {
 }
 
 /**
- * Form submission handler for scripto_transcribe_form() login.
+ * Form submission handler for scripto_login_form().
  */
 function scripto_login_form_submit($form, &$form_state) {
   // The validation handler took care of everything.
