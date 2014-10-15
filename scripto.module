@@ -298,9 +298,16 @@ function scripto_login_form_validate($form, &$form_state) {
     // Attempt the login.
     $scripto = _scripto_get_scripto();
     $scripto->login($form_state['values']['scripto_username'], $form_state['values']['scripto_password']);
+  
   } catch (Scripto_Service_Exception $e) {
-    form_set_error('', $e->getMessage());
-  }
+    $errormsg = $e->getMessage();
+    if ($errormsg == 'Username is not found.') { // text set in MediaWiki.php
+    	//add link to account creation page
+    	$errormsg .= t(' Would you like to create a new account? Go to the ');
+    	$errormsg .= l('account creation page.', "scripto/createacct/{$form_state['values']['node_id']}/{$form_state['values']['file_id']}");
+    }
+    form_set_error('', $errormsg);
+	}
 }
 
 /**
