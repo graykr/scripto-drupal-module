@@ -79,6 +79,7 @@ function scripto_config_form() {
   foreach (node_type_get_types() as $type_name => $type_info) {
     $type_names[$type_name] = $type_info->name;
   }
+  
   $form['scripto_node_types'] = array(
     '#type' => 'checkboxes',
     '#title' => t('Node types'),
@@ -86,6 +87,48 @@ function scripto_config_form() {
     '#options' => $type_names,
     '#default_value' => variable_get('scripto_node_types') ? variable_get('scripto_node_types') : array(),
   );
+  
+  $form['exclusions'] = array (
+	'#type' => 'fieldset',
+  	'#title' => t('Advanced settings: fields to exclude from transcription'),
+  	'#description' => t('Use these options to exclude particular fields from transcription.  This is helpful if you do not want to make all images or files on a particular node type available for transcription.'),
+  	'#collapsible' => TRUE,
+  	'#collapsed' => TRUE,
+  	'#tree' => TRUE,
+   );
+  
+  // Get fields specifically excluded from transcription.
+  $fields_excluded = variable_get('scripto_excluded_fields');
+  
+  foreach($type_names as $type_name) {
+
+	if(!empty($type_name)) {
+
+  		$fields_info = field_read_fields(array(
+  			'bundle'=>$type_name, 
+  			'type' => array('file', 'image')));
+  			
+  		$possible_fields = array();
+  		foreach($fields_info as $field_info) {
+  			$field_name = $field_info['field_name'];
+  			$possible_fields[$field_name] = $field_name;
+  		}
+  		
+  		$preset_fields = array();
+  		if(isset($fields_excluded[$type_name])) {
+  			$preset_fields = $fields_excluded[$type_name];
+  		}
+  		
+  		if(!empty($possible_fields)) {
+			$form['exclusions'][$type_name] = array (
+				'#type' => 'checkboxes',
+				'#title' => $type_name,
+				'#options' => $possible_fields,
+				'#default_value' => $preset_fields,
+			);
+  		}
+  	}
+  }
   
   $form['#validate'][] = 'scripto_config_form_validate';
   $form['#submit'][] = 'scripto_config_form_submit';
@@ -123,6 +166,7 @@ function scripto_config_form_submit($form, &$form_state) {
   variable_set('scripto_zend_framework_path', $form_state['values']['scripto_zend_framework_path']);
   variable_set('scripto_mediawiki_api_url', $form_state['values']['scripto_mediawiki_api_url']);
   variable_set('scripto_node_types', $form_state['values']['scripto_node_types']);
+  variable_set('scripto_excluded_fields', $form_state['values']['exclusions']);
   
   // Build an array of all node types that have an instance of the 
   // scripto_transcription field.
@@ -214,15 +258,21 @@ function scripto_transcribe_form($form, &$form_state, $node_id, $file_id) {
       '#cols' => 60,
       '#rows' => 16,
     );
+    
     $form['submit'] = array('#type' => 'submit', '#value' => t('Save Transcription'));
+    
+    // Give link to view transcription in MediaWiki for administrative users
     if ($scripto->canExport()) {
         $form['scripto_wiki'] = array('#markup' => l('View wiki page', $doc->getTranscriptionPageMediawikiUrl()) . '. ');
     }
+    
+    // Display login or logout options
     if ($scripto->isLoggedIn()) {
       $form['scripto_logout'] = array('#markup' => l('Log out, ' . $scripto->getUserName(), "scripto/transcribe/$node_id/$file_id", array('query' => array('logout' => null))));
     } else {
       $form['scripto_login'] = array('#markup' => l('Log in to Scripto', "scripto/login/$node_id/$file_id"));
     }
+    
     $form['#submit'][] = 'scripto_transcribe_form_submit';
   
   // Access to MediaWiki is restricted. Show login link or access denied message.
@@ -272,7 +322,7 @@ function scripto_login_form($form, &$form_state, $node_id, $file_id) {
 }
 
 /**
- * Form validation handler for scripto_transcribe_form() login.
+ * Form validation handler for scripto_login_form().
  */
 function scripto_login_form_validate($form, &$form_state) {
   try {
@@ -285,7 +335,7 @@ function scripto_login_form_validate($form, &$form_state) {
 }
 
 /**
- * Form submission handler for scripto_transcribe_form() login.
+ * Form submission handler for scripto_login_form().
  */
 function scripto_login_form_submit($form, &$form_state) {
   // The validation handler took care of everything.
@@ -391,18 +441,39 @@ function _scripto_get_scripto_path() {
  */
 function _scripto_get_pages($node) {
   $pages = array();
-  $fields = field_read_fields(array('type' => array('file', 'image')));
+  
+  $nodetype = node_type_get_name($node);
+  
+  $allfields = field_read_fields(array('type' => array('file', 'image')));
+  $excludedfields = variable_get('scripto_excluded_fields');
+  
   foreach ($node as $key => $value) {
     // Only process file and image fields.
-    if (!array_key_exists($key, $fields)) {
+    if (!array_key_exists($key, $allfields)) {
       continue;
     }
-    $items = field_get_items('node', $node, $key);
-    // Only process image and file fields that have items.
-    if (!$items)  {
-      continue;
-    }
-    $pages = array_merge($pages, $items);
+    
+    // Only process if not on the excluded list of fields for this content type
+    if(isset($excludedfields[$nodetype][$key])){ 
+    	if($excludedfields[$nodetype][$key] === 0) {
+			$process = true;
+		} else {
+			$process = false;
+		}
+	} else {
+		$process = true;
+	}
+	
+	$items = array();
+	if($process) {
+		$items = field_get_items('node', $node, $key);
+	}
+	
+	// Only process image and file fields that have items.
+	if (!$items)  {
+ 		continue;
+	}
+	$pages = array_merge($pages, $items);
   }
   return $pages;
 }

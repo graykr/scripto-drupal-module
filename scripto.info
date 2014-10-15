@@ -1,4 +1,6 @@
 name = Scripto
-description = Adds the ability to transcribe files using the Scripto library.
+description = Adds the ability to transcribe files using the Scripto library. This is a fork that allows admin users to exclude fields from being available for transcription.
 core = 7.x
 configure = admin/config/scripto
+
+dependencies[] = deepzoom
