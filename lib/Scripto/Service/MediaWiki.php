@@ -522,7 +522,27 @@ class Scripto_Service_MediaWiki extends Zend_Service_Abstract
         $params['token']         = $edittoken;
         $params['basetimestamp'] = $basetimestamp;
         
-        return $this->_request('edit', $params);
+        
+        $response = $this->_request('edit', $params);
+        
+        if ('Success' == $response['edit']['result']) {
+	        return $response;
+	    }
+	    
+	    // Process an unsuccessful edit attempt.
+        $errors = array(
+        	'confirmemail' => 'You must confirm your email address before editing.',
+        	'protectedpage' => 'Sorry! You do not have permission to edit this page.',
+        	'noedit' => 'Sorry! You do not have permission to edit.',
+        	'editconflict' => 'Edit conflict detected.',
+        	'blocked' => 'You have been blocked from editing.',
+        );
+        $error = $response['edit']['result'];
+        if (array_key_exists($error, $errors)) {
+            throw new Scripto_Service_Exception($errors[$error]);
+        }
+        throw new Scripto_Service_Exception('Unknown error in submitting edit: ' . $error);
+	    
     }
     
     /**

@@ -247,7 +247,13 @@ function scripto_transcribe_form_submit($form, &$form_state) {
   $scripto = _scripto_get_scripto();
   $doc = $scripto->getDocument($form_state['values']['node_id']);
   $doc->setPage($form_state['values']['file_id']);
-  $doc->editTranscriptionPage($form_state['values']['transcription']);
+  try {
+  	$doc->editTranscriptionPage($form_state['values']['transcription']);
+  } catch (Scripto_Service_Exception $e) {
+    $errormsg = $e->getMessage();
+    form_set_error('', $errormsg);
+    return;
+  }
   drupal_set_message('The transcription has been saved.');
 }
 
